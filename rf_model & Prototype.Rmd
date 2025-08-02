@@ -1,0 +1,432 @@
+---
+title: "A3"
+author: "MD Wahid Islam Arefin"
+date: "2025-05-21"
+studentid: "35419628"
+output: html_document
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Data Pre-processing and Transformation
+
+
+```{r}
+# libraries
+library(readr)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(GGally)
+library(ggcorrplot)
+library(corrplot)
+library(reshape2)
+library(patchwork)
+```
+
+
+```{r}
+# Dataset
+heart_data <- read_csv("heart_statlog_cleveland_hungary_final.csv")
+```
+
+```{r}
+# Structure & Data Summary
+str(heart_data)
+summary(heart_data)
+```
+
+```{r}
+# Removing irrelevant columns (C13 and C14)
+heart_data <- heart_data %>%
+  select(-`...13`, -`...14`)
+```
+
+
+```{r}
+# Rename=ing columns headings to clean names
+heart_data <- heart_data %>%
+  rename_with(~ gsub(" ", "_", .x))
+```
+
+
+```{r}
+# Converting relevant columns to factors
+heart_data <- heart_data %>%
+  mutate(
+    sex = as.factor(sex),
+    chest_pain_type = as.factor(chest_pain_type),
+    fasting_blood_sugar = as.factor(fasting_blood_sugar),
+    resting_ecg = as.factor(resting_ecg),
+    exercise_angina = as.factor(exercise_angina),
+    ST_slope = as.factor(ST_slope),
+    target = as.factor(target)
+  )
+```
+
+
+```{r}
+# Checking for missing values
+print(colSums(is.na(heart_data)))
+```
+
+This is to check for any cells with "NA" in the dataset.
+
+```{r}
+print(colSums(heart_data == ""))
+```
+This is to check any blank cells in the dataset
+
+```{r}
+# Normalizing the numeric columns (z-score)
+numeric_cols <- sapply(heart_data, is.numeric)
+heart_data[numeric_cols] <- lapply(heart_data[numeric_cols], scale)
+```
+
+Normalizing the numeric columns
+
+```{r}
+# 80/20 train-test split
+set.seed(42)
+sample_size <- floor(0.8 * nrow(heart_data))
+train_indices <- sample(seq_len(nrow(heart_data)), size = sample_size)
+
+train_data <- heart_data[train_indices, ]
+test_data <- heart_data[-train_indices, ]
+```
+
+Splitting the data into test and train data
+
+```{r}
+# Preview 
+glimpse(train_data)
+```
+
+Preview the train data
+
+EDA
+
+```{r}
+# 1. Class balance
+ggplot(heart_data, aes(x = target, fill = target)) +
+  geom_bar() +
+  labs(title = "Target Variable Distribution", x = "Heart Disease (1 = Yes, 0 = No)", y = "Count") +
+  theme_minimal()
+```
+
+
+```{r}
+# 2. Univariate analysis: numeric variables
+heart_data %>%
+  select(where(is.numeric)) %>%
+  pivot_longer(cols = everything(), names_to = "feature", values_to = "value") %>%
+  ggplot(aes(x = value)) +
+  geom_histogram(bins = 30, fill = "steelblue", color = "white") +
+  facet_wrap(~ feature, scales = "free", ncol = 3) +
+  theme_minimal() +
+  labs(title = "Distribution of Numeric Features")
+
+```
+
+
+```{r}
+# 3. Categorical vs. Target: bar plots
+p1 <- ggplot(heart_data, aes(x = sex, fill = target)) +
+  geom_bar(position = "fill") +
+  labs(title = "Sex", y = "Proportion") + theme_minimal()
+
+p2 <- ggplot(heart_data, aes(x = chest_pain_type, fill = target)) +
+  geom_bar(position = "fill") +
+  labs(title = "Chest Pain Type", y = "Proportion") + theme_minimal()
+
+p3 <- ggplot(heart_data, aes(x = fasting_blood_sugar, fill = target)) +
+  geom_bar(position = "fill") +
+  labs(title = "Fasting Blood Sugar", y = "Proportion") + theme_minimal()
+
+p4 <- ggplot(heart_data, aes(x = resting_ecg, fill = target)) +
+  geom_bar(position = "fill") +
+  labs(title = "Resting ECG", y = "Proportion") + theme_minimal()
+
+p5 <- ggplot(heart_data, aes(x = exercise_angina, fill = target)) +
+  geom_bar(position = "fill") +
+  labs(title = "Exercise Angina", y = "Proportion") + theme_minimal()
+
+p6 <- ggplot(heart_data, aes(x = ST_slope, fill = target)) +
+  geom_bar(position = "fill") +
+  labs(title = "ST Slope", y = "Proportion") + theme_minimal()
+
+# Combine all plots into a 2x3 grid
+(p1 | p2 | p3) / (p4 | p5 | p6) +
+  plot_annotation(title = "Proportion of Target by Categorical Features")
+
+```
+
+```{r}
+# 4. Numeric vs. Target: boxplots
+num_vars <- names(select(heart_data, where(is.numeric)))
+
+# Create boxplot for each numeric variable
+plots <- lapply(num_vars, function(var) {
+  ggplot(heart_data, aes_string(x = "target", y = var, fill = "target")) +
+    geom_boxplot() +
+    labs(title = paste(var, "by Target"), x = "Heart Disease", y = var) +
+    theme_minimal()
+})
+
+# Combine all plots into a grid (3 per row, adjust as needed)
+combined_boxplots <- wrap_plots(plots, ncol = 3) +
+  plot_annotation(title = "Boxplots of Numeric Variables by Heart Disease Status")
+
+# Print the combined boxplots
+combined_boxplots
+```
+
+```{r}
+# 5. Correlation heatmap for numeric features
+cor_data <- heart_data %>%
+  select(where(is.numeric)) %>%
+  cor()
+
+ggcorrplot(cor_data, lab = TRUE, title = "Correlation Heatmap of Numeric Features")
+```
+
+
+```{r}
+# 6 Density Plots for Numeric Features (Grouped by Target)
+
+heart_data %>%
+  select(where(is.numeric), target) %>%
+  pivot_longer(-target, names_to = "feature", values_to = "value") %>%
+  ggplot(aes(x = value, fill = target)) +
+  geom_density(alpha = 0.4) +
+  facet_wrap(~ feature, scales = "free", ncol = 3) +
+  labs(title = "Density Plots by Target Group", x = "Value", y = "Density") +
+  theme_minimal()
+
+```
+
+
+```{r}
+#7 Stacked Bar Chart with Counts
+
+ggplot(heart_data, aes(x = chest_pain_type, fill = target)) +
+  geom_bar(position = "stack") +
+  labs(title = "Chest Pain Type by Heart Disease", x = "Chest Pain Type", y = "Count") +
+  theme_minimal()
+```
+
+Logistic Regression Model
+
+```{r}
+# Logistic Regression Model
+logistic_model <- glm(target ~ ., data = train_data, family = binomial)
+summary(logistic_model)
+```
+
+```{r}
+# Predicting on the test set
+logistic_probs <- predict(logistic_model, newdata = test_data, type = "response")
+logistic_pred <- ifelse(logistic_probs > 0.5, 1, 0)
+```
+
+```{r}
+# Evaluation
+logistic_conf <- table(Predicted = logistic_pred, Actual = test_data$target)
+print(logistic_conf)
+```
+
+```{r}
+# Accuracy
+logistic_accuracy <- mean(logistic_pred == test_data$target)
+print(paste("Logistic Regression Accuracy:", round(logistic_accuracy, 3)))
+```
+
+Random Forest
+
+```{r}
+# library for RF
+library(randomForest)
+```
+
+```{r}
+# RF Model
+set.seed(123)
+rf_model <- randomForest(target ~ ., data = train_data, ntree = 100, importance = TRUE)
+
+```
+
+
+```{r}
+# Predict and evaluate
+rf_pred <- predict(rf_model, newdata = test_data)
+```
+
+
+```{r}
+# Confusion matrix
+rf_conf <- table(Predicted = rf_pred, Actual = test_data$target)
+print(rf_conf)
+```
+
+```{r}
+# Accuracy
+rf_accuracy <- mean(rf_pred == test_data$target)
+print(paste("Random Forest Accuracy:", round(rf_accuracy, 3)))
+```
+
+
+```{r}
+# Feature importance
+importance(rf_model)
+varImpPlot(rf_model)
+```
+
+```{r}
+# Model Accuracy
+accuracy_df <- data.frame(
+  Model = c("Logistic Regression", "Random Forest"),
+  Accuracy = c(0.828, 0.924)
+)
+
+ggplot(accuracy_df, aes(x = Model, y = Accuracy, fill = Model)) +
+  geom_col(width = 0.6) +
+  labs(title = "Model Accuracy Comparison", y = "Accuracy", x = "") +
+  theme_minimal() +
+  geom_text(aes(label = paste0(round(Accuracy*100, 1), "%")), vjust = -0.5)
+
+```
+
+
+
+
+Save model
+```{r}
+saveRDS(rf_model, "rf_model.rds")
+```
+
+
+A sample usage of the Model (Prototype)
+
+```{r}
+# app.R
+library(shiny)
+library(randomForest)
+
+# Load the pre-trained model
+rf_model <- readRDS("rf_model.rds")
+
+# Define UI
+ui <- fluidPage(
+  titlePanel("Heart Disease Risk Prediction"),
+
+  sidebarLayout(
+    sidebarPanel(
+      numericInput("age", "Age", 50, min = 20, max = 100),
+      
+      selectInput("sex", "Sex", choices = c("Male" = 1, "Female" = 0)),
+      
+      selectInput("chest_pain_type", "Chest Pain Type", choices = c(
+        "Typical angina" = 1,
+        "Atypical angina" = 2,
+        "Non-anginal pain" = 3,
+        "Asymptomatic" = 4
+      )),
+      
+      numericInput("resting_bp_s", "Resting Blood Pressure (mmHg)", 130),
+      numericInput("cholesterol", "Cholesterol (mg/dL)", 200),
+      
+      selectInput("fasting_blood_sugar", "Fasting Blood Sugar > 120 mg/dL?", choices = c("No" = 0, "Yes" = 1)),
+      
+      selectInput("resting_ecg", "Resting ECG", choices = c(
+        "Normal" = 0,
+        "ST-T abnormality" = 1,
+        "Probable/Definite LVH" = 2
+      )),
+      
+      numericInput("max_heart_rate", "Max Heart Rate", 150),
+      
+      selectInput("exercise_angina", "Exercise-Induced Angina", choices = c("No" = 0, "Yes" = 1)),
+      
+      numericInput("oldpeak", "Oldpeak (ST depression)", 1.0),
+      
+      selectInput("ST_slope", "ST Slope", choices = c(
+        "Upsloping" = 0,
+        "Flat" = 1,
+        "Downsloping" = 2,
+        "Unknown" = 3
+      )),
+      
+      actionButton("submit", "Predict")
+    ),
+
+    mainPanel(
+      h3("Prediction Result"),
+      verbatimTextOutput("result")
+    )
+  )
+)
+
+# Define Server
+server <- function(input, output) {
+  observeEvent(input$submit, {
+    input_data <- data.frame(
+      age = as.numeric(input$age),
+      sex = factor(as.numeric(input$sex), levels = c(0, 1)),
+      chest_pain_type = factor(as.numeric(input$chest_pain_type), levels = c(1, 2, 3, 4)),
+      resting_bp_s = as.numeric(input$resting_bp_s),
+      cholesterol = as.numeric(input$cholesterol),
+      fasting_blood_sugar = factor(as.numeric(input$fasting_blood_sugar), levels = c(0, 1)),
+      resting_ecg = factor(as.numeric(input$resting_ecg), levels = c(0, 1, 2)),
+      max_heart_rate = as.numeric(input$max_heart_rate),
+      exercise_angina = factor(as.numeric(input$exercise_angina), levels = c(0, 1)),
+      oldpeak = as.numeric(input$oldpeak),
+      ST_slope = factor(as.numeric(input$ST_slope), levels = c(0, 1, 2, 3))
+    )
+
+    prediction <- predict(rf_model, newdata = input_data)
+
+    output$result <- renderText({
+  if (prediction == 1) {
+    paste0(
+      "🔴 High risk of heart disease\n\n",
+      
+      "🩺 Recommendations:\n",
+      "- Maintain a heart-healthy diet low in saturated fat and salt\n",
+      "- Engage in regular physical activity (at least 30 mins/day)\n",
+      "- Avoid smoking and limit alcohol consumption\n",
+      "- Monitor and manage blood pressure, cholesterol, and blood sugar levels\n",
+      "- Follow up with a cardiologist for further tests\n\n",
+      "🌐 Helpful Links:\n",
+      "- https://www.who.int/news-room/fact-sheets/detail/cardiovascular-diseases-(cvds)\n",
+      "- https://www.cdc.gov/heartdisease/prevention.htm\n",
+      "- https://www.heart.org/en/healthy-living"
+    )
+  } else {
+    paste0(
+      "🟢 Low risk of heart disease\n\n",
+      
+      "✅ Keep up the good habits!\n",
+      "- Maintain a healthy weight and balanced diet\n",
+      "- Stay physically active\n",
+      "- Avoid smoking and limit alcohol\n",
+      "- Continue routine check-ups\n\n",
+      "🌐 Learn more:\n",
+      "- https://www.nhs.uk/live-well/healthy-body/10-tips-for-a-healthy-heart/"
+    )
+  }
+})
+
+  })
+}
+
+# Run the app
+shinyApp(ui = ui, server = server)
+
+```
+
+
+
+

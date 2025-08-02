@@ -67,7 +67,7 @@ The project uses the `heart_statlog_cleveland_hungary_final.csv` dataset which c
 ├── heart_statlog_cleveland_hungary_final.csv  # Primary dataset
 ├── Heart_disease_statlog.csv    # Additional dataset
 ├── rf_model.rds                 # Saved Random Forest model
-├── FIT5145-A3.Rproj            # R project file
+├── MLProjectFile.Rproj          # R project file
 ├── Report.pdf                   # Project report
 ├── Workings.pdf                 # Working documents
 └── README.md                    # Project documentation
@@ -84,7 +84,7 @@ install.packages(c("randomForest", "dplyr", "tidyr", "ggplot2",
 
 ### Running the Analysis
 1. Clone this repository
-2. Open the R project file (`FIT5145-A3.Rproj`)
+2. Open the R project file (`MLProjectFile.Rproj`)
 3. Run the R Markdown file (`rf_model & Prototype.Rmd`)
 
 ### Using the Saved Model
@@ -123,14 +123,12 @@ This model can be used by healthcare professionals as a supplementary tool for:
 ## 👨‍💻 Author
 
 **MD Wahid Islam Arefin**
-- Student ID: 35419628
 - GitHub: [@Wahid-Islam](https://github.com/Wahid-Islam)
 - Email: mdwahidislamarefin@gmail.com
 
 ## 📅 Project Timeline
 
 - **Date Created**: May 21, 2025
-- **Assignment**: FIT5145 - A3
 
 ## 🤝 Contributing
 
@@ -141,5 +139,6 @@ Feel free to fork this project, submit pull requests, or suggest improvements. A
 This project is available for educational and research purposes. Please cite appropriately if used in academic work.
 
 ---
+
 
 *This project demonstrates the application of machine learning techniques in healthcare analytics, specifically for cardiovascular disease prediction.*
